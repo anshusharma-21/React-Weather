@@ -3,7 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, 
 import Gauge from "./components/Gauge";
 import SunArc from "./components/SunArc";
 import WindCompass from "./components/WindCompass";
-import CustomTooltip from "./components/CustomTooltip";
+import CustomTooltip from "./components/CustomToolTip";
 
 const BG_THEMES = {
   sunny: "linear-gradient(135deg, #FF9A3C 0%, #FFD166 40%, #06D6A0 100%)",
