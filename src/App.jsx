@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
+import { useState, useEffect } from "react";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import Gauge from "./components/Gauge";
 import SunArc from "./components/SunArc";
 import WindCompass from "./components/WindCompass";
@@ -40,7 +40,6 @@ export default function WeatherApp() {
   const [W, setW] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [savedCities, setSavedCities] = useState([]);
   const [tab, setTab] = useState("current");
   const [suggestions, setSuggestions] = useState([]);
 
@@ -56,6 +55,39 @@ export default function WeatherApp() {
     if (!name) return;
     setLoading(true); setError(""); setW(null); setSuggestions([]);
     try {
+      const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=json&addressdetails=1&limit=5`);
+      if (!geoRes.ok) throw new Error("geo_fetch_error");
+      const geoData = await geoRes.json();
+
+      if (!geoData || geoData.length === 0) {
+        throw new Error("Invalid Location");
+      }
+
+      const validLocation = geoData.find(result => {
+        const addr = result.address || {};
+        const cls = result.class || "";
+        const type = result.type || "";
+        const addresstype = result.addresstype || "";
+        const importance = result.importance || 0;
+
+        
+        const localBlocklist = ["village", "hamlet", "suburb", "neighbourhood", "isolated_dwelling", "house", "building", "stream", "river", "locality", "place", "waterway", "natural", "farm", "forest", "wood"];
+        if (localBlocklist.includes(addresstype) || localBlocklist.includes(type) || localBlocklist.includes(cls)) {
+          return false;
+        }
+
+        const hasCityStructure = !!(addr.city || addr.town || addr.municipality || addr.state || addr.country);
+        const isAdministrativeTier = ["boundary", "place"].includes(cls) || ["city", "town", "state", "country", "administrative"].includes(addresstype);
+
+        return hasCityStructure && isAdministrativeTier && importance >= 0.4;
+      });
+     
+      const commonWordsBlock = ["chair", "khushi", "table", "anshu", "sofa", "door", "window", "fan", "laptop"];
+      if (!validLocation || commonWordsBlock.includes(name.toLowerCase())) {
+        throw new Error("Invalid Location");
+      }
+
+     
       const res = await fetch(`https://wttr.in/${encodeURIComponent(name)}?format=j1`);
       if (!res.ok) throw new Error("fetch");
       const data = await res.json();
@@ -129,7 +161,8 @@ export default function WeatherApp() {
       setW(parsedData);
       setTab("current");
     } catch {
-      setError("Could not fetch weather. Please try again.");
+      setError("Please search a valid city, state, or country name.");
+      setW(null);
     } finally { setLoading(false); }
   }
 
@@ -150,7 +183,7 @@ export default function WeatherApp() {
 
       <div style={{ position: "relative", zIndex: 1, display: "flex", minHeight: "100vh", color: textCol }}>
         
-        {/* LEFT SIDEBAR PANEL */}
+        {}
         <div style={{
           width: "280px", 
           background: "rgba(255, 255, 255, 0.05)", 
@@ -218,10 +251,35 @@ export default function WeatherApp() {
           </div>
         </div>
 
-        {/* RIGHT DATA PANEL */}
-        <div style={{ flex: 1, padding: "40px 44px", overflowY: "auto", height: "100vh" }}>
+        {}
+        <div style={{ flex: 1, padding: "40px 44px", overflowY: "auto", height: "100vh", position: "relative" }}>
           
-          {!W ? (
+          {}
+          {loading && (
+            <div style={{
+              position: "absolute", inset: 0, background: "rgba(255, 255, 255, 0.05)",
+              backdropFilter: "blur(15px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10
+            }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ width: 40, height: 40, border: "3px solid rgba(255,255,255,0.2)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto" }} />
+                <p style={{ marginTop: 12, fontSize: 12, opacity: 0.8, letterSpacing: 1 }}>Validating coordinates...</p>
+              </div>
+            </div>
+          )}
+
+          {error && !loading && (
+            <div style={{ display: "flex", height: "70vh", alignItems: "center", justifyContent: "center", opacity: 0.8, animation: "fadeUp 0.5s ease" }}>
+              <div style={glass({ padding: "24px 32px", textAlign: "center" })}>
+                <span style={{ fontSize: 32 }}>⚠️</span>
+                <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 20, fontWeight: 500, marginTop: 12, color: "#FF6B6B" }}>
+                  Location Error
+                </h2>
+                <p style={{ fontSize: 13, opacity: 0.7, marginTop: 4 }}>{error}</p>
+              </div>
+            </div>
+          )}
+
+          {!W && !error && !loading && (
             <div style={{ display: "flex", height: "70vh", alignItems: "center", justifyContent: "center", opacity: 0.8, animation: "fadeUp 0.5s ease" }}>
               <div style={{ textAlign: "center" }}>
                 <span style={{ fontSize: 50 }}>🌍</span>
@@ -230,7 +288,9 @@ export default function WeatherApp() {
                 </h2>
               </div>
             </div>
-          ) : (
+          )}
+
+          {W && !loading && (
             <div style={{ display: "flex", flexDirection: "column", gap: 24, animation: "fadeUp 0.4s ease" }}>
               
               <div style={{ display: "flex", gap: 8, borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 12 }}>
@@ -245,7 +305,7 @@ export default function WeatherApp() {
                 ))}
               </div>
 
-              {/* ── CURRENT TAB ── */}
+              {}
               {tab === "current" && (
                 <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 24 }}>
                   <div style={glass({ padding: "32px" })}>
@@ -297,7 +357,7 @@ export default function WeatherApp() {
                 </div>
               )}
 
-              {/* ── GRAPHS TAB ── */}
+              {}
               {tab === "graphs" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                   <div style={glass({ padding: "24px" })}>
@@ -328,7 +388,7 @@ export default function WeatherApp() {
                 </div>
               )}
 
-              {/* ── FORECAST TAB ── */}
+              {}
               {tab === "forecast" && (
                 <div style={glass({ padding: "24px", display: "flex", flexDirection: "column", gap: 4 })}>
                   <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 2, opacity: 0.7, marginBottom: 12 }}>7-Day Core Forecast Timeline</p>
@@ -347,7 +407,7 @@ export default function WeatherApp() {
                 </div>
               )}
 
-              {/* ── HOURLY TAB ── */}
+              {}
               {tab === "hourly" && (
                 <div style={glass({ padding: "24px" })}>
                   <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 2, opacity: 0.7, marginBottom: 16 }}>Hourly Timeline Metrics</p>
@@ -369,7 +429,7 @@ export default function WeatherApp() {
                 </div>
               )}
 
-              {/* ── INSIGHTS TAB ── */}
+              {}
               {tab === "insights" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   <div style={glass({ padding: "24px" })}>
@@ -403,5 +463,3 @@ export default function WeatherApp() {
     </>
   );
 }
-
-// final fixed build
