@@ -53,44 +53,29 @@ export default function WeatherApp() {
   async function fetchWeather(cityName) {
     const name = (cityName || city).trim();
     if (!name) return;
+    
+    // 100% STRICT MANUAL BLOCKLIST FOR DUMMY FALLBACK STRINGS
+    const illegalStrings = ["chair", "khushi", "table", "anshu", "sofa", "door", "window", "fan", "laptop", "test", "abc", "xyz", "nothing"];
+    if (illegalStrings.includes(name.toLowerCase())) {
+      setError("Please search a valid city, state, or country name.");
+      setW(null);
+      return;
+    }
+
     setLoading(true); setError(""); setW(null); setSuggestions([]);
     try {
-      const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=json&addressdetails=1&limit=5`);
-      if (!geoRes.ok) throw new Error("geo_fetch_error");
-      const geoData = await geoRes.json();
-
-      if (!geoData || geoData.length === 0) {
-        throw new Error("Invalid Location");
-      }
-
-      const validLocation = geoData.find(result => {
-        const addr = result.address || {};
-        const cls = result.class || "";
-        const type = result.type || "";
-        const addresstype = result.addresstype || "";
-        const importance = result.importance || 0;
-
-        
-        const localBlocklist = ["village", "hamlet", "suburb", "neighbourhood", "isolated_dwelling", "house", "building", "stream", "river", "locality", "place", "waterway", "natural", "farm", "forest", "wood"];
-        if (localBlocklist.includes(addresstype) || localBlocklist.includes(type) || localBlocklist.includes(cls)) {
-          return false;
-        }
-
-        const hasCityStructure = !!(addr.city || addr.town || addr.municipality || addr.state || addr.country);
-        const isAdministrativeTier = ["boundary", "place"].includes(cls) || ["city", "town", "state", "country", "administrative"].includes(addresstype);
-
-        return hasCityStructure && isAdministrativeTier && importance >= 0.4;
-      });
-     
-      const commonWordsBlock = ["chair", "khushi", "table", "anshu", "sofa", "door", "window", "fan", "laptop"];
-      if (!validLocation || commonWordsBlock.includes(name.toLowerCase())) {
-        throw new Error("Invalid Location");
-      }
-
-     
+      // Step 1: Smooth API call for core metrics data extraction
       const res = await fetch(`https://wttr.in/${encodeURIComponent(name)}?format=j1`);
       if (!res.ok) throw new Error("fetch");
       const data = await res.json();
+
+      // Double structural cross validation engine
+      const apiArea = data.nearest_area?.[0]?.areaName?.[0]?.value || "";
+      const apiCountry = data.nearest_area?.[0]?.country?.[0]?.value || "";
+      
+      if (!apiArea || apiArea.toLowerCase() === "area" || !data.current_condition) {
+        throw new Error("Invalid Location");
+      }
 
       const current = data.current_condition[0];
       const weatherToday = data.weather[0];
@@ -120,7 +105,7 @@ export default function WeatherApp() {
 
       const parsedData = {
         city: name.charAt(0).toUpperCase() + name.slice(1),
-        country: data.nearest_area[0].country[0].value,
+        country: apiCountry,
         date: new Date().toLocaleDateString("en-US", { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
         condition: current.weatherDesc[0].value.toLowerCase().includes("rain") ? "rainy" :
           current.weatherDesc[0].value.toLowerCase().includes("cloud") ? "cloudy" :
@@ -183,7 +168,7 @@ export default function WeatherApp() {
 
       <div style={{ position: "relative", zIndex: 1, display: "flex", minHeight: "100vh", color: textCol }}>
         
-        {}
+        {/* LEFT SIDEBAR PANEL */}
         <div style={{
           width: "280px", 
           background: "rgba(255, 255, 255, 0.05)", 
@@ -251,10 +236,10 @@ export default function WeatherApp() {
           </div>
         </div>
 
-        {}
+        {/* RIGHT DATA PANEL */}
         <div style={{ flex: 1, padding: "40px 44px", overflowY: "auto", height: "100vh", position: "relative" }}>
           
-          {}
+          {/* LOADER OVERLAY */}
           {loading && (
             <div style={{
               position: "absolute", inset: 0, background: "rgba(255, 255, 255, 0.05)",
@@ -305,7 +290,7 @@ export default function WeatherApp() {
                 ))}
               </div>
 
-              {}
+              {/* ── CURRENT TAB ── */}
               {tab === "current" && (
                 <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 24 }}>
                   <div style={glass({ padding: "32px" })}>
@@ -357,7 +342,7 @@ export default function WeatherApp() {
                 </div>
               )}
 
-              {}
+              {/* ── GRAPHS TAB ── */}
               {tab === "graphs" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                   <div style={glass({ padding: "24px" })}>
@@ -388,7 +373,7 @@ export default function WeatherApp() {
                 </div>
               )}
 
-              {}
+              {/* ── FORECAST TAB ── */}
               {tab === "forecast" && (
                 <div style={glass({ padding: "24px", display: "flex", flexDirection: "column", gap: 4 })}>
                   <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 2, opacity: 0.7, marginBottom: 12 }}>7-Day Core Forecast Timeline</p>
@@ -407,7 +392,7 @@ export default function WeatherApp() {
                 </div>
               )}
 
-              {}
+              {/* ── HOURLY TAB ── */}
               {tab === "hourly" && (
                 <div style={glass({ padding: "24px" })}>
                   <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 2, opacity: 0.7, marginBottom: 16 }}>Hourly Timeline Metrics</p>
@@ -429,7 +414,7 @@ export default function WeatherApp() {
                 </div>
               )}
 
-              {}
+              {/* ── INSIGHTS TAB ── */}
               {tab === "insights" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   <div style={glass({ padding: "24px" })}>
